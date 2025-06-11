@@ -1,0 +1,44 @@
+ai-agent/
+├── requirements.txt
+├── requirements-dev.txt
+├── .env.example
+├── .gitignore
+├── README.md
+├── setup.py
+├── Dockerfile
+├── docker-compose.yml
+├── Makefile
+├── pyproject.toml
+├── src/
+│   ├── __init__.py
+│   ├── ai_agent/
+│   │   ├── __init__.py
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── agent.py
+│   │   │   ├── config.py
+│   │   │   └── exceptions.py
+│   │   ├── providers/
+│   │   │   ├── __init__.py
+│   │   │   ├── openai_provider.py
+│   │   │   └── base_provider.py
+│   │   ├── utils/
+│   │   │   ├── __init__.py
+│   │   │   ├── logger.py
+│   │   │   └── helpers.py
+│   │   └── cli/
+│   │       ├── __init__.py
+│   │       └── main.py
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_agent.py
+│   └── test_providers.py
+├── docs/
+│   ├── README.md
+│   ├── API.md
+│   └── examples/
+│       └── basic_usage.py
+└── scripts/
+    ├── setup.sh
+    └── run_tests.sh

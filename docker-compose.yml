@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  ai-agent:
+    build: .
+    container_name: ai-agent
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./conversations:/app/conversations
+      - ./.env:/app/.env
+    stdin_open: true
+    tty: true
+
+  ai-agent-dev:
+    build: .
+    container_name: ai-agent-dev
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - .:/app
+      - ./conversations:/app/conversations
+    stdin_open: true
+    tty: true
+    command: /bin/bash

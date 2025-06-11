@@ -1,0 +1,19 @@
+Getting Started
+
+Create the project structure:
+bashmkdir ai-agent && cd ai-agent
+# Create all the files and directories as shown above
+
+Setup virtual environment:
+bashpython -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+Install dependencies:
+bashmake setup-dev
+
+Configure environment:
+bashcp .env.example .env
+# Edit .env with your OpenAI API key
+
+Run the agent:
+bashmake run
