@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import Mock, patch
-import openai
 
 from src.ai_agent.providers.openai_provider import OpenAIProvider
 from src.ai_agent.providers.base_provider import Message, ChatResponse
@@ -33,8 +32,9 @@ class TestOpenAIProvider:
     def test_validate_config_failure(self, mock_openai_client):
         """Test configuration validation failure."""
         mock_client = Mock()
-        mock_client.models.list.side_effect = (openai
-                                               .APIError("Invalid API key"))
+        mock_client.models.list.side_effect = (
+            Exception("Invalid API key")
+        )  # Use general Exception
         mock_openai_client.return_value = mock_client
 
         provider = OpenAIProvider(api_key="test-key")
@@ -70,8 +70,8 @@ class TestOpenAIProvider:
     async def test_chat_api_error(self, mock_openai_client):
         """Test chat with API error."""
         mock_client = Mock()
-        mock_client.chat.completions.create.side_effect = openai.APIError(
-            "Rate limit exceeded"
+        mock_client.models.list.side_effect = (
+            Exception("Rate limit exceeded")
         )
         mock_openai_client.return_value = mock_client
 

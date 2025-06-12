@@ -9,12 +9,13 @@ from src.ai_agent.providers.openai_provider import OpenAIProvider
 def mock_settings():
     """Mock settings for testing."""
     return Settings(
-        openai_api_key="test-key",
-        openai_model="gpt-3.5-turbo",
-        openai_max_tokens=100,
-        openai_temperature=0.5,
-        agent_name="Test Agent",
-        log_level="DEBUG",
+        OPENAI_API_KEY="test-key",
+        OPENAI_MODEL="gpt-3.5-turbo",
+        OPENAI_MAX_TOKENS=100,
+        OPENAI_TEMPERATURE=0.5,
+        AGENT_NAME="Test Agent",
+        AGENT_PERSONALITY="Friendly",
+        LOG_LEVEL="DEBUG",
     )
 
 

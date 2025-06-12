@@ -18,9 +18,9 @@ flake8 src/ tests/
 echo "🔎 Running type checking..."
 mypy src/
 
-# Run tests with coverage
+# Run tests with coverage (configuration from pyproject.toml)
 echo "🏃 Running tests with coverage..."
-pytest tests/ --cov=src/ai_agent --cov-report=html --cov-report=term
+pytest
 
 echo "✅ All tests passed!"
 
