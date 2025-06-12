@@ -6,24 +6,28 @@ set -e
 echo "🚀 Setting up AI Agent project..."
 
 # Check if Python is installed
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 is not installed. Please install Python 3.8 or later."
+if ! command -v python &> /dev/null; then
+    echo "❌ Python is not installed. Please install Python 3.8 or later."
     exit 1
 fi
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "📦 Creating virtual environment..."
-    python3 -m venv venv
+    python -m venv venv
 fi
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source venv/bin/activate
+if [ -f "venv/Scripts/activate" ]; then
+  source venv/Scripts/activate
+else
+  source venv/bin/activate
+fi
 
 # Upgrade pip
 echo "⬆️ Upgrading pip..."
-pip install --upgrade pip
+python.exe -m pip install --upgrade pip
 
 # Install dependencies
 if [ "$1" = "dev" ]; then
@@ -40,8 +44,8 @@ pip install -e .
 
 # Create necessary directories
 echo "📁 Creating directories..."
-mkdir -p conversations
-mkdir -p logs
+/usr/bin/mkdir -p conversations
+/usr/bin/mkdir -p logs
 
 # Copy environment template if .env doesn't exist
 if [ ! -f ".env" ]; then
