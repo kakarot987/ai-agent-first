@@ -30,12 +30,12 @@ def cli(ctx: click.Context, debug: bool) -> None:
 
 @cli.command()
 @click.option("--model",
-              default="gpt-3.5-turbo", help="AI model to use")
+              default="gpt-4o-mini", help="AI model to use")
 @click.option(
     "--temperature", default=0.7,
     type=float, help="Response creativity (0.0-1.0)"
 )
-@click.option("--max-tokens", default=150,
+@click.option("--max-tokens", default=300,
               type=int, help="Maximum response length")
 @click.option(
     "--save-dir", default="conversations",
@@ -200,11 +200,11 @@ def _load_conversation(agent: AIAgent, filepath: str) -> None:
 
 @cli.command()
 @click.argument("message")
-@click.option("--model", default="gpt-3.5-turbo",
+@click.option("--model", default="gpt-4o-mini",
               help="AI model to use")
 @click.option("--temperature", default=0.7,
               type=float, help="Response creativity")
-@click.option("--max-tokens", default=150,
+@click.option("--max-tokens", default=300,
               type=int, help="Maximum response length")
 def ask(message: str, model: str,
         temperature: float, max_tokens: int) -> None:
@@ -273,6 +273,96 @@ def load(filepath: str) -> None:
         console.print(f"[red]Error loading conversation: {e}[/red]")
         raise click.Abort()
 
+
+
+@cli.command("run")
+@click.argument("goal")
+@click.option(
+    "--workspace", default="agent-workspace", show_default=True,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Local workspace: read inputs/ and write reports/ only.",
+)
+@click.option("--model", default="gpt-4o-mini", show_default=True)
+@click.option("--max-steps", type=click.IntRange(1, 12), default=6, show_default=True)
+@click.option("--max-tool-calls", type=click.IntRange(1, 40), default=10, show_default=True)
+@click.option(
+    "--trace", type=click.Path(dir_okay=False, path_type=Path),
+    help="Optional JSON trace path; keep private if using sensitive inputs.",
+)
+def run_goal(
+    goal: str, workspace: Path, model: str, max_steps: int,
+    max_tool_calls: int, trace: Path | None,
+) -> None:
+    """Execute a bounded real OpenAI tool-using task."""
+    import json
+    from ai_agent.core.tool_agent import ToolAgent
+    from ai_agent.providers.openai_provider import OpenAIProvider
+    from ai_agent.tools.workspace import WorkspaceTools
+
+    try:
+        settings = Settings()
+        provider = OpenAIProvider(api_key=settings.openai_api_key, model=model)
+        runner = ToolAgent(
+            provider, WorkspaceTools(workspace),
+            max_steps=max_steps, max_tool_calls=max_tool_calls,
+        )
+        result = asyncio.run(
+            runner.run(
+                goal,
+                model_kwargs={
+                    "max_tokens": max(settings.openai_max_tokens, 900),
+                    "temperature": 0.2,
+                },
+            )
+        )
+        if trace:
+            trace.parent.mkdir(parents=True, exist_ok=True)
+            trace.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
+            click.echo(f"Trace: {trace}")
+        click.echo(result.answer)
+        click.echo(
+            f"Status: {result.status} | Model turns: {result.model_steps} "
+            f"| Tool calls: {result.tool_calls}"
+        )
+        if not result.completed:
+            raise click.ClickException(f"Agent finished with status {result.status}")
+    except (ValueError, AIAgentException) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@cli.command("demo")
+@click.option(
+    "--workspace", default="agent-demo", show_default=True,
+    type=click.Path(file_okay=False, path_type=Path),
+)
+def demo(workspace: Path) -> None:
+    """Run a scripted offline multi-tool walkthrough (no API key)."""
+    import json
+    from ai_agent.core.tool_agent import ToolAgent
+    from ai_agent.demo import ScriptedDemoModel, ensure_sample_input
+    from ai_agent.tools.workspace import WorkspaceTools
+
+    workspace = workspace.resolve()
+    ensure_sample_input(workspace)
+    tools = WorkspaceTools(workspace)
+    filename = "example-estimate.md"
+    suffix = 2
+    while (workspace / "reports" / filename).exists():
+        filename = f"example-estimate-{suffix}.md"
+        suffix += 1
+    model = ScriptedDemoModel(report_path=f"reports/{filename}")
+    result = asyncio.run(ToolAgent(model, tools, max_steps=5).run(
+        "Read inputs/brief.md, calculate the estimate, and write a report."
+    ))
+    click.echo(result.answer)
+    click.echo(f"Status: {result.status} | Tool calls: {result.tool_calls}")
+    trace_path = workspace / "reports" / f"{Path(filename).stem}-trace.json"
+    trace_path.write_text(
+        json.dumps(result.to_dict(), indent=2), encoding="utf-8"
+    )
+    click.echo(f"Trace: {trace_path}")
+    if not result.completed or not (workspace / "reports" / filename).is_file():
+        raise click.ClickException("The scripted demo did not create a report")
 
 if __name__ == "__main__":
     cli()
