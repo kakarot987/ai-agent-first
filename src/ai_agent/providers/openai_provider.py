@@ -35,6 +35,54 @@ class OpenAIProvider(BaseProvider):
         """Validate local settings without making a network request."""
         return bool(self.api_key.strip() and self.model.strip())
 
+
+    async def complete_tool_turn(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        **kwargs: Any,
+    ) -> "ModelTurn":
+        """Ask the model for a final reply or function calls; do not execute tools."""
+        from ai_agent.core.tool_agent import FunctionCall, ModelTurn
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=cast(Any, messages),
+                tools=cast(Any, tools),
+                tool_choice="auto",
+                max_tokens=kwargs.get("max_tokens", 900),
+                temperature=kwargs.get("temperature", 0.2),
+            )
+            if not response.choices:
+                raise APIException("OpenAI returned no choices")
+            message = response.choices[0].message
+            calls = []
+            for tool in message.tool_calls or []:
+                if tool.type != "function":
+                    raise APIException("Unexpected tool-call type")
+                calls.append(
+                    FunctionCall(
+                        id=tool.id,
+                        name=tool.function.name,
+                        arguments=tool.function.arguments,
+                    )
+                )
+            usage = None
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+            return ModelTurn(content=message.content, tool_calls=calls, usage=usage)
+        except APIException:
+            raise
+        except (openai.APITimeoutError, openai.APIConnectionError) as exc:
+            raise APIException("Could not reach OpenAI; check your connection") from exc
+        except openai.APIError as exc:
+            raise APIException(f"OpenAI tool request failed: {exc}") from exc
+
     async def chat(
         self,
         messages: List[Message],
