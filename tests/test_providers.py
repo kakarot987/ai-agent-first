@@ -1,83 +1,81 @@
-import pytest
-from unittest.mock import Mock, patch
+"""Unit tests for the asynchronous OpenAI provider."""
 
-from src.ai_agent.providers.openai_provider import OpenAIProvider
-from src.ai_agent.providers.base_provider import Message, ChatResponse
-from src.ai_agent.core.exceptions import APIException, ConfigurationException
+from unittest.mock import AsyncMock, Mock, patch
+
+import httpx
+import openai
+import pytest
+
+from ai_agent.core.exceptions import APIException, ConfigurationException
+from ai_agent.providers.base_provider import ChatResponse, Message
+from ai_agent.providers.openai_provider import OpenAIProvider
+
+
+def mock_api_response(content="Hello!"):
+    response = Mock()
+    response.choices = [Mock()]
+    response.choices[0].message.content = content
+    response.usage = Mock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    return response
 
 
 class TestOpenAIProvider:
-
-    def test_initialization_without_api_key_raises_error(self):
-        """Test that initialization without API key raises error."""
+    def test_requires_api_key(self):
         with pytest.raises(ConfigurationException):
             OpenAIProvider(api_key="")
 
-    def test_initialization_with_api_key(self):
-        """Test successful initialization."""
-        provider = OpenAIProvider(api_key="test-key")
-        assert provider.model == "gpt-3.5-turbo"
-
-    @patch("openai.OpenAI")
-    def test_validate_config_success(self, mock_openai_client):
-        """Test successful configuration validation."""
-        mock_client = Mock()
-        mock_client.models.list.return_value = []
-        mock_openai_client.return_value = mock_client
-
-        provider = OpenAIProvider(api_key="test-key")
+    @patch("ai_agent.providers.openai_provider.openai.AsyncOpenAI")
+    def test_initializes_async_client_with_timeout(self, client_class):
+        provider = OpenAIProvider("test-key", timeout=12.0, max_retries=1)
         assert provider.validate_config() is True
-
-    @patch("openai.OpenAI")
-    def test_validate_config_failure(self, mock_openai_client):
-        """Test configuration validation failure."""
-        mock_client = Mock()
-        mock_client.models.list.side_effect = (
-            Exception("Invalid API key")
-        )  # Use general Exception
-        mock_openai_client.return_value = mock_client
-
-        provider = OpenAIProvider(api_key="test-key")
-        assert provider.validate_config() is False
-
-    @pytest.mark.asyncio
-    @patch("openai.OpenAI")
-    async def test_chat_success(self, mock_openai_client):
-        """Test successful chat."""
-        # Mock OpenAI response
-        mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "Hello! How can I help?"
-        mock_response.usage.prompt_tokens = 10
-        mock_response.usage.completion_tokens = 8
-        mock_response.usage.total_tokens = 18
-
-        mock_client = Mock()
-        mock_client.chat.completions.create.return_value = mock_response
-        mock_openai_client.return_value = mock_client
-
-        provider = OpenAIProvider(api_key="test-key")
-
-        messages = [Message(role="user", content="Hello")]
-        response = await provider.chat(messages)
-
-        assert isinstance(response, ChatResponse)
-        assert response.content == "Hello! How can I help?"
-        assert response.usage["total_tokens"] == 18
-
-    @pytest.mark.asyncio
-    @patch("openai.OpenAI")
-    async def test_chat_api_error(self, mock_openai_client):
-        """Test chat with API error."""
-        mock_client = Mock()
-        mock_client.models.list.side_effect = (
-            Exception("Rate limit exceeded")
+        client_class.assert_called_once_with(
+            api_key="test-key", timeout=12.0, max_retries=1
         )
-        mock_openai_client.return_value = mock_client
 
+    @pytest.mark.asyncio
+    @patch("ai_agent.providers.openai_provider.openai.AsyncOpenAI")
+    async def test_chat_success(self, client_class):
+        client = client_class.return_value
+        client.chat.completions.create = AsyncMock(
+            return_value=mock_api_response("Hello!")
+        )
         provider = OpenAIProvider(api_key="test-key")
+        result = await provider.chat([Message(role="user", content="Hi")])
+        assert isinstance(result, ChatResponse)
+        assert result.content == "Hello!"
+        assert result.usage["total_tokens"] == 15
+        client.chat.completions.create.assert_awaited_once()
 
-        messages = [Message(role="user", content="Hello")]
+    @pytest.mark.asyncio
+    @patch("ai_agent.providers.openai_provider.openai.AsyncOpenAI")
+    async def test_chat_empty_response(self, client_class):
+        client_class.return_value.chat.completions.create = AsyncMock(
+            return_value=mock_api_response(None)
+        )
+        provider = OpenAIProvider(api_key="test-key")
+        with pytest.raises(APIException, match="empty response"):
+            await provider.chat([Message(role="user", content="Hi")])
 
-        with pytest.raises(APIException):
-            await provider.chat(messages)
+    @pytest.mark.asyncio
+    @patch("ai_agent.providers.openai_provider.openai.AsyncOpenAI")
+    async def test_chat_connection_failure(self, client_class):
+        client_class.return_value.chat.completions.create = AsyncMock(
+            side_effect=openai.APIConnectionError(
+                request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+            )
+        )
+        provider = OpenAIProvider(api_key="test-key")
+        with pytest.raises(APIException, match="Could not reach OpenAI"):
+            await provider.chat([Message(role="user", content="Hi")])
+
+    @pytest.mark.asyncio
+    @patch("ai_agent.providers.openai_provider.openai.AsyncOpenAI")
+    async def test_chat_api_status_error(self, client_class):
+        request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+        response = httpx.Response(429, request=request)
+        client_class.return_value.chat.completions.create = AsyncMock(
+            side_effect=openai.APIStatusError("Rate limited", response=response, body=None)
+        )
+        provider = OpenAIProvider(api_key="test-key")
+        with pytest.raises(APIException, match="OpenAI API request failed"):
+            await provider.chat([Message(role="user", content="Hi")])

@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import Mock
-from src.ai_agent.core.config import Settings
-from src.ai_agent.core.agent import AIAgent
-from src.ai_agent.providers.openai_provider import OpenAIProvider
+from ai_agent.core.config import Settings
+from ai_agent.core.agent import AIAgent
+from ai_agent.providers.openai_provider import OpenAIProvider
 
 
 @pytest.fixture

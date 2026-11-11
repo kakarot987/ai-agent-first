@@ -15,7 +15,7 @@ test:
 	pytest tests/ -v
 
 test-cov:
-	pytest tests/ --cov=src/ai_agent --cov-report=html --cov-report=term
+	pytest tests/ --cov=ai_agent --cov-report=html --cov-report=term
 
 # Code Quality
 lint:
@@ -28,11 +28,11 @@ format:
 
 # Running
 run:
-	python -m ai_agent.cli.main
+	ai-agent chat
 
 # Docker
 docker-build:
-	docker-compose build
+	docker compose build
 
 docker-run:
 	docker-compose up ai-agent
