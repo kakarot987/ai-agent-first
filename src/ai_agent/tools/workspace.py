@@ -79,6 +79,8 @@ class WorkspaceTools:
             raise ToolError(f"Path must be under {directory}/")
         destination = (self.root / relative_path).resolve()
         allowed_dir = (self.root / directory).resolve()
+        if not allowed_dir.is_relative_to(self.root):
+            raise ToolError("Workspace directory is a symlink outside workspace")
         if not destination.is_relative_to(allowed_dir) or destination == allowed_dir:
             raise ToolError("Path escapes the allowed directory")
         if destination.suffix.lower() not in extensions:
