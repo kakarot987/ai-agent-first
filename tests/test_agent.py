@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import AsyncMock
 
-from src.ai_agent.core.agent import AIAgent
-from src.ai_agent.core.exceptions import ValidationException, AIAgentException
-from src.ai_agent.providers.base_provider import Message, ChatResponse
+from ai_agent.core.agent import AIAgent
+from ai_agent.core.exceptions import ValidationException, AIAgentException
+from ai_agent.providers.base_provider import Message, ChatResponse
 
 
 class TestAIAgent:
@@ -157,3 +157,20 @@ class TestAIAgent:
         """Test loading nonexistent file raises error."""
         with pytest.raises(AIAgentException):
             agent_with_mock_provider.load_conversation("nonexistent.json")
+
+    @pytest.mark.asyncio
+    async def test_failed_chat_does_not_persist_unanswered_turn(
+        self, agent_with_mock_provider
+    ):
+        agent_with_mock_provider.provider.chat = AsyncMock(
+            side_effect=RuntimeError("provider offline")
+        )
+        with pytest.raises(RuntimeError, match="provider offline"):
+            await agent_with_mock_provider.chat("Hi")
+        assert agent_with_mock_provider.conversation_history == []
+
+    def test_get_recent_messages_zero(self, agent_with_mock_provider):
+        agent_with_mock_provider.conversation_history = [
+            Message(role="user", content="Hi")
+        ]
+        assert agent_with_mock_provider.get_recent_messages(0) == []

@@ -1,69 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Setup script for AI Agent project
-set -e
-
-echo "🚀 Setting up AI Agent project..."
-
-# Check if Python is installed
-if ! command -v python &> /dev/null; then
-    echo "❌ Python is not installed. Please install Python 3.8 or later."
-    exit 1
+if ! command -v python >/dev/null 2>&1; then
+  echo "Python 3.10+ is required" >&2
+  exit 1
 fi
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "📦 Creating virtual environment..."
-    python -m venv venv
-fi
-
-# Activate virtual environment
-echo "🔧 Activating virtual environment..."
-if [ -f "venv/Scripts/activate" ]; then
-  source venv/Scripts/activate
+python -m venv venv
+# shellcheck disable=SC1091
+source venv/bin/activate
+python -m pip install --upgrade pip
+if [[ "${1:-}" == "dev" ]]; then
+  python -m pip install -e '.[dev]'
+  pre-commit install
 else
-  source venv/bin/activate
+  python -m pip install -e .
 fi
-
-# Upgrade pip
-echo "⬆️ Upgrading pip..."
-python.exe -m pip install --upgrade pip
-
-# Install dependencies
-if [ "$1" = "dev" ]; then
-    echo "🛠️ Installing development dependencies..."
-    pip install -r requirements-dev.txt
-else
-    echo "📚 Installing dependencies..."
-    pip install -r requirements.txt
+mkdir -p conversations logs
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+  echo "Edit .env with your OpenAI API key."
 fi
-
-# Install the package in development mode
-echo "📋 Installing package in development mode..."
-pip install -e .
-
-# Create necessary directories
-echo "📁 Creating directories..."
-/usr/bin/mkdir -p conversations
-/usr/bin/mkdir -p logs
-
-# Copy environment template if .env doesn't exist
-if [ ! -f ".env" ]; then
-    echo "⚙️ Creating .env file from template..."
-    cp .env.example .env
-    echo "📝 Please edit .env file with your API keys"
-fi
-
-# Install pre-commit hooks if in dev mode
-if [ "$1" = "dev" ]; then
-    echo "🔗 Installing pre-commit hooks..."
-    pre-commit install
-fi
-
-echo "✅ Setup complete!"
-echo ""
-echo "Next steps:"
-echo "1. Edit .env file with your OpenAI API key"
-echo "2. Run: source venv/bin/activate"
-echo "3. Run: ai-agent chat"
-echo ""
+echo "Setup complete. Activate venv and run: ai-agent chat"

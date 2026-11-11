@@ -5,9 +5,9 @@ from pathlib import Path
 
 from .config import Settings
 from .exceptions import AIAgentException, ValidationException
-from src.ai_agent.providers.base_provider import BaseProvider, Message
-from src.ai_agent.providers.openai_provider import OpenAIProvider
-from src.ai_agent.utils.logger import setup_logger
+from ai_agent.providers.base_provider import BaseProvider, Message
+from ai_agent.providers.openai_provider import OpenAIProvider
+from ai_agent.utils.logger import setup_logger
 
 
 class AIAgent:
@@ -114,6 +114,8 @@ class AIAgent:
             return response.content
 
         except Exception as e:
+            # Avoid persisting a user turn without a matching assistant response.
+            self.conversation_history.pop()
             self.logger.error(f"Chat failed: {e}")
             raise
 
@@ -197,7 +199,6 @@ class AIAgent:
 
     def get_recent_messages(self, count: int = 5) -> List[Dict[str, Any]]:
         """Get recent messages."""
-        recent = self.conversation_history[-count:] \
-            if self.conversation_history \
-            else []
-        return [msg.dict() for msg in recent]
+        if count <= 0:
+            return []
+        return [msg.model_dump() for msg in self.conversation_history[-count:]]

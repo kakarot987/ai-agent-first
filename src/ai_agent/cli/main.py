@@ -9,9 +9,9 @@ from rich.table import Table
 from datetime import datetime
 from pathlib import Path
 
-from src.ai_agent.core.agent import AIAgent
-from src.ai_agent.core.config import Settings
-from src.ai_agent.core.exceptions import AIAgentException
+from ai_agent.core.agent import AIAgent
+from ai_agent.core.config import Settings
+from ai_agent.core.exceptions import AIAgentException
 
 
 console = Console()

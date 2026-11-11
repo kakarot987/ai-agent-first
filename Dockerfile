@@ -1,32 +1,15 @@
-FROM python:3.13-bullseye
+FROM python:3.11-slim
 
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy source code
-COPY src/ ./src/
-COPY setup.py .
-COPY README.md .
-
-# Install the package
-RUN pip install -e .
-
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash agent
-USER agent
-
-# Set environment variables
-ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+COPY setup.py pyproject.toml README.md ./
+COPY src/ ./src/
+RUN python -m pip install --no-cache-dir .
 
-CMD ["python", "-m", "ai_agent.cli.main"]
+RUN useradd --create-home --shell /bin/sh agent \
+    && mkdir -p /app/conversations \
+    && chown -R agent:agent /app/conversations
+USER agent
+
+CMD ["ai-agent", "chat"]
