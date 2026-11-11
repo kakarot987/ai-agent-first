@@ -345,18 +345,23 @@ def demo(workspace: Path) -> None:
     workspace = workspace.resolve()
     ensure_sample_input(workspace)
     tools = WorkspaceTools(workspace)
-    model = ScriptedDemoModel()
+    filename = "example-estimate.md"
+    suffix = 2
+    while (workspace / "reports" / filename).exists():
+        filename = f"example-estimate-{suffix}.md"
+        suffix += 1
+    model = ScriptedDemoModel(report_path=f"reports/{filename}")
     result = asyncio.run(ToolAgent(model, tools, max_steps=5).run(
         "Read inputs/brief.md, calculate the estimate, and write a report."
     ))
     click.echo(result.answer)
     click.echo(f"Status: {result.status} | Tool calls: {result.tool_calls}")
-    trace_path = workspace / "reports" / "demo-trace.json"
+    trace_path = workspace / "reports" / f"{Path(filename).stem}-trace.json"
     trace_path.write_text(
         json.dumps(result.to_dict(), indent=2), encoding="utf-8"
     )
     click.echo(f"Trace: {trace_path}")
-    if not result.completed or not (workspace / "reports/example-estimate.md").is_file():
+    if not result.completed or not (workspace / "reports" / filename).is_file():
         raise click.ClickException("The scripted demo did not create a report")
 
 if __name__ == "__main__":

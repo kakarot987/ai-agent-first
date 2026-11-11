@@ -32,10 +32,14 @@ def ensure_sample_input(workspace: Path) -> None:
 class ScriptedDemoModel:
     """Deterministic four-turn fake model for an honest, reproducible demo."""
 
-    def __init__(self) -> None:
+    def __init__(self, report_path: str = "reports/example-estimate.md") -> None:
         self.turn = 0
         self.brief = ""
         self.total = ""
+        self.report_path = report_path
+        self.discovery_hours = ""
+        self.implementation_hours = ""
+        self.hourly_rate = ""
 
     async def complete_tool_turn(
         self,
@@ -60,7 +64,13 @@ class ScriptedDemoModel:
             rate = re.search(r"Hourly rate \(USD\):\s*(\d+)", self.brief)
             if not (discovery and implementation and rate):
                 return ModelTurn(content="Demo brief is missing expected number fields.")
-            expression = f"({discovery.group(1)} + {implementation.group(1)}) * {rate.group(1)}"
+            self.discovery_hours = discovery.group(1)
+            self.implementation_hours = implementation.group(1)
+            self.hourly_rate = rate.group(1)
+            expression = (
+                f"({self.discovery_hours} + {self.implementation_hours}) "
+                f"* {self.hourly_rate}"
+            )
             return ModelTurn(
                 tool_calls=[
                     FunctionCall(
@@ -78,8 +88,10 @@ class ScriptedDemoModel:
                 "## Scope\n"
                 "Customer-support knowledge base prototype\n\n"
                 "## Effort and pricing\n"
-                "Discovery: 12 hours; implementation: 28 hours.\n"
-                f"Hourly rate: $85; estimated total: ${self.total} USD.\n\n"
+                f"Discovery: {self.discovery_hours} hours; "
+                f"implementation: {self.implementation_hours} hours.\n"
+                f"Hourly rate: ${self.hourly_rate}; "
+                f"estimated total: ${self.total} USD.\n\n"
                 "## Plan\n"
                 "1. Gather requirements and identify source documents.\n"
                 "2. Build a small searchable knowledge-base prototype.\n"
@@ -92,7 +104,7 @@ class ScriptedDemoModel:
                         "demo-write",
                         "write_report",
                         json.dumps(
-                            {"path": "reports/example-estimate.md", "content": report}
+                            {"path": self.report_path, "content": report}
                         ),
                     )
                 ]
